@@ -1,0 +1,11 @@
+_target_: type_r.dataset.MarioEvalDataset
+_partial_: true
+
+hfds_dir: resources/data/marioevalbench/hfds
+sub_set: ablation # "test", "ablation", "val"
+sub_datasetname: LAIONEval4000 # "ChineseDrawText", "DrawBenchText", "DrawTextCreative", "LAIONEval4000", "OpenLibraryEval500", "TMDBEval500"
+start_index: 0
+end_index: 10
+prompt_file: null
+use_augmented_prompt: false
+indexlist_file: null

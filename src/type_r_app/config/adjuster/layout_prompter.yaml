@@ -1,0 +1,4 @@
+_target_: type_r.adjuster.LayoutPrompterAdjuster
+_partial_: true
+
+skip_text_erasing: false

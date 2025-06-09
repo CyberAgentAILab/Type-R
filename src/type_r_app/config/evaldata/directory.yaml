@@ -1,0 +1,3 @@
+_target_: type_r.eval.vlm.dataset.DirectoryDataset
+_partial_: true
+image_ext: jpg

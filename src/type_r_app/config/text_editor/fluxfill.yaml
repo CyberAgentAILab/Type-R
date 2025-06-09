@@ -1,0 +1,6 @@
+_target_: type_r.editor.fluxfill.FluxFillWrapper
+_partial_: true
+
+weight_path: n/a
+guidance_scale: 30.0
+num_inference_steps: 50

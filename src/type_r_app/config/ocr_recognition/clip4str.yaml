@@ -1,0 +1,4 @@
+_target_: type_r.ocr.clip4str.Clip4Str
+_partial_: true
+
+weight_path: resources/weight/ocr/clip4str

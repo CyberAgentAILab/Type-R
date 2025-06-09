@@ -1,0 +1,18 @@
+[submodule "packages/apex"]
+	path = packages/apex
+	url = git@github.com:NVIDIA/apex.git
+[submodule "packages/detectron2"]
+	path = packages/detectron2
+	url = git@github.com:facebookresearch/detectron2.git
+[submodule "packages/craft-text-detector"]
+	path = packages/craft-text-detector
+	url = git@github.com:fcakyon/craft-text-detector.git
+[submodule "packages/DeepSolo"]
+	path = packages/DeepSolo
+	url = git@github.com:ViTAE-Transformer/DeepSolo.git
+[submodule "packages/VLMEvalKit"]
+	path = packages/VLMEvalKit
+	url = git@github.com:open-compass/VLMEvalKit.git
+[submodule "packages/MaskTextSpotterV3"]
+	path = packages/MaskTextSpotterV3
+	url = git@github.com:MhLiao/MaskTextSpotterV3.git

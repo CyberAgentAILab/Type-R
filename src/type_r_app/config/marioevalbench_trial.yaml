@@ -1,0 +1,50 @@
+command: ???
+output_dir: results/marioevalbench_trial
+reference_img_dir: results/marioevalbench_trial/ref_img
+word_mapping_dir: results/marioevalbench_trial/word_mapping
+brushup_target_dir: results/marioevalbench_trial/layout_corrected_img
+evaluation_img_dir: results/marioevalbench_trial/typo_corrected_img
+font_path: resources/data/LiberationSans-Regular.ttf
+
+# t2i config
+use_augmented_prompt: true
+
+# layout correction config
+load_word_mapping: false
+filter_detection: true
+filtering_size_rate: 0.04
+
+# typo correction config
+ocr_validation: true
+trial_num: 10
+
+# evaluation config
+evalbyvlm: false
+masktextspotterv3_weight: resources/weight/ocr/masktextspotterv3.pth
+
+# prompt augmentation config
+input_format: hfds
+max_retry: 5
+retry_interval: 0.5
+
+# openai config
+use_azure: false
+
+hydra:
+  run:
+    dir: /tmp/hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: /tmp/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+defaults:
+  - _self_
+  - t2i: flux
+  - adjuster: default
+  - ocr_detection: paddleocr
+  - ocr_recognition: modelscope
+  - text_eraser: lama
+  - text_editor: anytext
+  - evaluation: rating_design_quality
+  - evaldata: directory
+  - dataset: marioeval_trial

@@ -1,0 +1,5 @@
+_target_: type_r.editor.mostel.MostelWrapper
+_partial_: true
+
+weight_path: resources/weight/text_editor/mostel
+font_path: resources/data/arial_unicode_ms.ttf

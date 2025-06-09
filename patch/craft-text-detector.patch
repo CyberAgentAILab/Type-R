@@ -1,0 +1,27 @@
+diff --git a/pyproject.toml b/pyproject.toml
+new file mode 100644
+index 0000000..6342f9c
+--- /dev/null
++++ b/pyproject.toml
+@@ -0,0 +1,20 @@
++[build-system]
++requires = ["hatchling"]
++build-backend = "hatchling.build"
++
++[project]
++name = "craft-text-detector"
++version = "0.4.3"
++description = "Fast and accurate text detection library built on CRAFT implementation"
++license = { file = "LICENSE" }
++authors = [
++    { name = "Fatih Cagatay Akyon" }
++]
++dependencies=[
++    "numpy>=1.15.3,<3.0",
++    "torch>=1.6.0",
++    "torchvision>=0.7.0",
++    "opencv-python>=3.4.8.29",
++    "scipy>=1.3.2",
++    "gdown>=3.10.1",
++]
+\ No newline at end of file

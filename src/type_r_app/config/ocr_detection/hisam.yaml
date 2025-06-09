@@ -1,0 +1,4 @@
+_target_: type_r.ocr.hisam.HiSAMOCRDet
+_partial_: true
+
+weight_path: resources/weight/ocr/hisam_weight

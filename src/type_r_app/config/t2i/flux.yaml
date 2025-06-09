@@ -1,0 +1,26 @@
+_target_: type_r.t2i.Flux
+_partial_: true
+
+# weight directory path
+pretrained_model_name_or_path: black-forest-labs/FLUX.1-dev
+
+# cache directory path
+cache_dir: resources/weight/t2i/FLUX.1-dev
+
+# pipeline kwargs
+low_cpu_mem_usage: true
+offload_state_dict: false
+
+# weight loading options
+enable_model_cpu_offload: false
+run_on_low_vram_gpus: false
+
+# hyperparams
+seed: null
+image_type: square
+resolution: 1.0
+resolution_type: area
+# for schnell
+# guidance_scale: 0.0
+# num_inference_steps: 4
+# max_sequence_length: 256

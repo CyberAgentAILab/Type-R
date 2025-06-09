@@ -1,0 +1,11 @@
+_target_: type_r.dataset.MarioEvalDataset
+_partial_: true
+
+hfds_dir: resources/data/marioevalbench/hfds
+sub_set: test # "test", "ablation", "val"
+sub_datasetname: all
+start_index: -1
+end_index: -1
+prompt_file: null
+use_augmented_prompt: false
+indexlist_file: null

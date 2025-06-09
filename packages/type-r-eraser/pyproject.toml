@@ -1,0 +1,26 @@
+[project]
+name = "type-r-eraser"
+version = "0.1.0"
+description = "Type-R text eraser package."
+readme = "README.md"
+authors = [
+    { name = "Wataru Shimoda", email = "wataru_shimoda@cyberagent.co.jp" },
+]
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "numpy>=2.2.3",
+    "opencv-python>=4.6.0.66",
+    "pillow>=10.4.0",
+    "torch",
+    "type-r-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["type_r"]  # src layout does not work in editable mode.
+
+[tool.uv.sources]
+type-r-core = { workspace = true }

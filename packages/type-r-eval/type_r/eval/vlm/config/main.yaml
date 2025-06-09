@@ -1,0 +1,11 @@
+defaults:
+  - _self_
+  - dataset: directory
+  - evaluation: voting_text_quality
+
+vlm_name: GPT4o
+output_path: ???
+
+hydra:
+  run:
+    dir: .

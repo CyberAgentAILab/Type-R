@@ -1,0 +1,18 @@
+command: evaluation
+output_dir: ???
+evalbyvlm: false
+vlm_name: GPT4o
+masktextspotterv3_weight: resources/weight/ocr/masktextspotterv3.pth
+
+hydra:
+  run:
+    dir: /tmp/hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: /tmp/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+defaults:
+  - _self_
+  - evaluation: rating_design_quality
+  - evaldata: directory
+  - dataset: marioeval

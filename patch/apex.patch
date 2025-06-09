@@ -1,0 +1,92 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 44836bb..e944a87 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -2,5 +2,17 @@
+ requires = [
+     "setuptools",
+     "wheel",
++    "numpy>=2.0.0",
++    "torch",
+ ]
+ build-backend = "setuptools.build_meta"
++
++[project]
++name = "apex"
++version = "0.1.0"
++description = "PyTorch Extensions written by NVIDIA"
++dependencies=[
++    "numpy>=1.15.3,<3.0",
++    "PyYAML>=5.1",
++    "packaging>20.6",
++]
+\ No newline at end of file
+diff --git a/setup.py b/setup.py
+index 4aa6616..18fc11c 100644
+--- a/setup.py
++++ b/setup.py
+@@ -119,8 +119,8 @@ if "--cpp_ext" in sys.argv or "--cuda_ext" in sys.argv:
+ 
+ if "--cpp_ext" in sys.argv:
+     sys.argv.remove("--cpp_ext")
+-    ext_modules.append(CppExtension("apex_C", ["csrc/flatten_unflatten.cpp"]))
+ 
++ext_modules.append(CppExtension("apex_C", ["csrc/flatten_unflatten.cpp"]))
+ 
+ # Set up macros for forward/backward compatibility hack around
+ # https://github.com/pytorch/pytorch/commit/4404762d7dd955383acee92e6f06b48144a0742e
+@@ -138,7 +138,10 @@ if (TORCH_MAJOR > 1) or (TORCH_MAJOR == 1 and TORCH_MINOR > 4):
+     version_ge_1_5 = ["-DVERSION_GE_1_5"]
+ version_dependent_macros = version_ge_1_1 + version_ge_1_3 + version_ge_1_5
+ 
+-_, bare_metal_version = get_cuda_bare_metal_version(CUDA_HOME)
++if CUDA_HOME is None:
++    warnings.warn("CUDA_HOME not found. Disabling CUDA extensions.")
++else:
++    _, bare_metal_version = get_cuda_bare_metal_version(CUDA_HOME)
+ 
+ if "--distributed_adam" in sys.argv:
+     sys.argv.remove("--distributed_adam")
+@@ -178,7 +181,8 @@ if "--distributed_lamb" in sys.argv:
+ 
+ if "--cuda_ext" in sys.argv:
+     sys.argv.remove("--cuda_ext")
+-    raise_if_cuda_home_none("--cuda_ext")
++
++if CUDA_HOME is not None:
+     check_cuda_torch_binary_vs_bare_metal(CUDA_HOME)
+ 
+     ext_modules.append(
+@@ -356,23 +360,6 @@ if "--cuda_ext" in sys.argv:
+ 
+     if bare_metal_version >= Version("11.0"):
+ 
+-        cc_flag = []
+-        cc_flag.append("-gencode")
+-        cc_flag.append("arch=compute_70,code=sm_70")
+-        cc_flag.append("-gencode")
+-        cc_flag.append("arch=compute_80,code=sm_80")
+-        if bare_metal_version >= Version("11.1"):
+-            cc_flag.append("-gencode")
+-            cc_flag.append("arch=compute_86,code=sm_86")
+-        if bare_metal_version >= Version("11.8"):
+-            cc_flag.append("-gencode")
+-            cc_flag.append("arch=compute_90,code=sm_90")
+-        if bare_metal_version >= Version("12.8"):
+-            cc_flag.append("-gencode")
+-            cc_flag.append("arch=compute_100,code=sm_100")
+-            cc_flag.append("-gencode")
+-            cc_flag.append("arch=compute_120,code=sm_120")
+-
+         ext_modules.append(
+             CUDAExtension(
+                 name="fused_weight_gradient_mlp_cuda",
+@@ -391,7 +378,7 @@ if "--cuda_ext" in sys.argv:
+                         "--expt-relaxed-constexpr",
+                         "--expt-extended-lambda",
+                         "--use_fast_math",
+-                    ] + version_dependent_macros + cc_flag,
++                    ] + version_dependent_macros,
+                 },
+             )
+         )

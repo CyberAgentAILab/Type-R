@@ -1,0 +1,4 @@
+_target_: type_r.adjuster.NaiveBaselineAdjuster
+_partial_: true
+
+skip_text_erasing: false

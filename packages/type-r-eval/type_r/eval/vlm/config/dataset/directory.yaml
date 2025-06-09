@@ -1,0 +1,3 @@
+_target_: evalbyvlm.dataset.DirectoryDataset
+_partial_: true
+image_dir: ???

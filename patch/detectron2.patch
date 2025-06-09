@@ -1,0 +1,87 @@
+diff --git a/pyproject.toml b/pyproject.toml
+new file mode 100644
+index 0000000..8870b0a
+--- /dev/null
++++ b/pyproject.toml
+@@ -0,0 +1,33 @@
++[build-system]
++requires = [
++    "setuptools",
++    "wheel",
++    "numpy>=2.0.0",
++    "torch",
++]
++build-backend = "setuptools.build_meta"
++
++[project]
++name = "detectron2"
++version = "0.6.0"
++description = "Detectron2 is FAIR's next-generation research platform for object detection and segmentation."
++authors = [
++    { name = "FAIR" },
++]
++dependencies=[
++    "torch",
++    "torchvision",
++    "pillow",
++    "pycocotools>=2.0.2",
++    "yacs>=0.1.8",
++    "tabulate",
++    "cloudpickle",
++    "fvcore>=0.1.5,<0.1.6",
++    "iopath>=0.1.7,<0.1.10",
++    "omegaconf>=2.1,<2.4",
++    "hydra-core>=1.1",
++    "packaging",
++]
++
++[project.urls]
++homepage = "https://github.com/facebookresearch/detectron2"
+\ No newline at end of file
+diff --git a/setup.py b/setup.py
+index b51307a..e4fbce5 100644
+--- a/setup.py
++++ b/setup.py
+@@ -15,7 +15,7 @@ assert torch_ver >= [1, 8], "Requires PyTorch >= 1.8"
+ 
+ 
+ def get_version():
+-    init_py_path = path.join(path.abspath(path.dirname(__file__)), "detectron2", "__init__.py")
++    init_py_path = path.join("detectron2", "__init__.py")
+     init_py = open(init_py_path, "r").readlines()
+     version_line = [l.strip() for l in init_py if l.startswith("__version__")][0]
+     version = version_line.split("=")[-1].strip().strip("'\"")
+@@ -38,8 +38,7 @@ def get_version():
+ 
+ 
+ def get_extensions():
+-    this_dir = path.dirname(path.abspath(__file__))
+-    extensions_dir = path.join(this_dir, "detectron2", "layers", "csrc")
++    extensions_dir = path.join("detectron2", "layers", "csrc")
+ 
+     main_source = path.join(extensions_dir, "vision.cpp")
+     sources = glob.glob(path.join(extensions_dir, "**", "*.cpp"))
+@@ -63,7 +62,7 @@ def get_extensions():
+     extra_compile_args = {"cxx": []}
+     define_macros = []
+ 
+-    if (torch.cuda.is_available() and ((CUDA_HOME is not None) or is_rocm_pytorch)) or os.getenv(
++    if (((CUDA_HOME is not None) or is_rocm_pytorch)) or os.getenv(
+         "FORCE_CUDA", "0"
+     ) == "1":
+         extension = CUDAExtension
+@@ -158,7 +157,6 @@ setup(
+     packages=find_packages(exclude=("configs", "tests*")) + list(PROJECTS.keys()),
+     package_dir=PROJECTS,
+     package_data={"detectron2.model_zoo": get_model_zoo_configs()},
+-    python_requires=">=3.7",
+     install_requires=[
+         # These dependencies are not pure-python.
+         # In general, avoid adding dependencies that are not pure-python because they are not
+@@ -215,5 +213,5 @@ setup(
+         ],
+     },
+     ext_modules=get_extensions(),
+-    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
++    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension.with_options(use_ninja=False)},
+ )

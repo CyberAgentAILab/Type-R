@@ -1,0 +1,77 @@
+[project]
+authors = [
+    {name = "Wataru Shimoda", email = "wataru_shimoda@cyberagent.co.jp"},
+]
+requires-python = "<3.13,>=3.10"
+dependencies = [
+    "pillow<11.0.0,>=10.0.0",
+    "torch",
+    "numpy>=2.0.0",
+    "omegaconf<3.0.0,>=2.3.0",
+    "pydantic>=2.10.6",
+    "hydra-core<2.0.0,>=1.3.2",
+    "loguru<1.0.0,>=0.7.2",
+    "seaborn<1.0.0,>=0.13.2",
+    "matplotlib>=3.10.1",
+    "type-r-adjuster",
+    "type-r-core",
+    "type-r-dataset",
+    "type-r-eraser",
+    "type-r-editor",
+    "type-r-eval",
+    "type-r-ocr",
+    "type-r-t2i",
+]
+name = "type-r-app"
+version = "1.0.0"
+description = "Type-R probject."
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.optional-dependencies]
+accelerate = [
+    "accelerate<1.0.0,>=0.33.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipython==8.12.3",
+    "jupyter<2.0.0,>=1.0.0",
+    "matplotlib",
+    "tensorboard==2.14.0",
+    "pytest<9.0.0,>=8.3.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+type-r-core = { workspace = true }
+type-r-adjuster = { workspace = true }
+type-r-dataset = { workspace = true }
+type-r-t2i = { workspace = true }
+type-r-ocr = { workspace = true }
+type-r-eraser = { workspace = true }
+type-r-editor = { workspace = true }
+type-r-eval = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "packages/type-r-core",
+    "packages/type-r-adjuster",
+    "packages/type-r-dataset",
+    "packages/type-r-t2i",
+    "packages/type-r-ocr",
+    "packages/type-r-eraser",
+    "packages/type-r-editor",
+    "packages/type-r-eval",
+]
+
+[tool.uv]
+find-links = [
+    "https://download.pytorch.org/whl/cu126/torch",
+    "https://download.pytorch.org/whl/cu126/torchvision",
+]

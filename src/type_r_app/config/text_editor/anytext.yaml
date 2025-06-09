@@ -1,0 +1,17 @@
+_target_: type_r.editor.anytext.AnyTextWrapper
+_partial_: true
+
+weight_path: resources/weight/text_editor/anytext.ckpt
+font_path: resources/data/arial_unicode_ms.ttf
+max_lines: 20
+max_chars: 20
+PLACE_HOLDER: "*"
+a_prompt: "best quality extremely detailed"
+n_prompt: "longbody lowres bad anatomy bad hands missing fingers extra digit fewer digits cropped worst quality low quality watermark"
+num_samples: 1
+ddim_steps: 20
+strength: 1.0
+scale: 9.0
+seed: -1
+eta: 1.0
+save_memory: False

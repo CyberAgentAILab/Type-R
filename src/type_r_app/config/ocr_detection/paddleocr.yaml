@@ -1,0 +1,4 @@
+_target_: type_r.ocr.paddleocr.PaddleOCRDet
+_partial_: true
+
+weight_path: n/a

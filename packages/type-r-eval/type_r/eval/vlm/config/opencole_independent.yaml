@@ -1,0 +1,10 @@
+defaults:
+  - _self_
+  - dataset: directory
+
+vlm_name: GPT4o
+output_dir: ???
+
+hydra:
+  run:
+    dir: .

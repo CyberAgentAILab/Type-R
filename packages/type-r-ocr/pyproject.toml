@@ -1,0 +1,42 @@
+[project]
+name = "type-r-ocr"
+version = "0.1.0"
+description = "Type-R OCR package."
+readme = "README.md"
+authors = [
+    { name = "Wataru Shimoda", email = "wataru_shimoda@cyberagent.co.jp" },
+]
+requires-python = ">=3.10, <3.13"
+dependencies = [
+    "torch",
+    "torchvision",
+    "pillow>=10.4.0",
+    "opencv-python>=4.6.0.66",
+    "einops>=0.8.1",
+    "modelscope<1.24.0",
+    "pyclipper>=1.3.0.post6",
+    "shapely>=2.0.7",
+    "pytorch-lightning>=2.5.0.post0",
+    "transformers>=4.49.0",
+    "natsort>=8.4.0",
+    "paddleocr>=2.9.0",
+    "addict>=2.4.0",
+    "MaskTextSpotterV3",
+    "DeepSolo",
+    "craft-text-detector",
+    "paddlepaddle>=2.6.2",
+    "type-r-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["type_r"]  # src layout does not work in editable mode.
+
+[tool.uv.sources]
+MaskTextSpotterV3 = { path = "../MaskTextSpotterV3" }
+DeepSolo = { path = "../DeepSolo" }
+craft-text-detector = { path = "../craft-text-detector" }
+type-r-core = { workspace = true }

@@ -1,0 +1,4 @@
+_target_: type_r.extmodels.ocr.masktextspotterv3.MaskTextSpotterV3Recog
+_partial_: true
+
+weight_path: resources/weight/ocr/masktextspotterv3.pth

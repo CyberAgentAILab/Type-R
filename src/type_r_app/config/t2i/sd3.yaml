@@ -1,0 +1,21 @@
+_target_: type_r.t2i.SD3
+_partial_: true
+
+# weight directory path
+pretrained_model_name_or_path: stabilityai/stable-diffusion-3-medium-diffusers
+
+# cache directory path
+cache_dir: resources/weight/t2i/stable-diffusion-3-medium-diffusers
+
+# pipeline kwargs
+low_cpu_mem_usage: true
+offload_state_dict: false
+
+# hyperparams
+use_negative_prompts: true
+guidance_scale: 7.5
+num_inference_steps: 30
+seed: null
+image_type: square
+resolution: 1.0
+resolution_type: area

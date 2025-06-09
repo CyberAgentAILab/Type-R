@@ -1,0 +1,20 @@
+command: prompt_augmentation
+vlm_name: GPT4o
+output_dir: ???
+input_format: txt
+max_retry: 5
+retry_interval: 0.5
+
+# openai config
+use_azure: false
+
+hydra:
+  run:
+    dir: /tmp/hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: /tmp/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+defaults:
+  - _self_
+  - dataset: marioeval

@@ -1,0 +1,28 @@
+# command
+command: t2i
+
+# output directory path
+output_dir: ???
+
+# A name of a specific dataset for processing
+dataset_name: all
+
+# augmentation config
+use_augmented_prompt: false
+
+# dummy directory for job
+job-dir: tmp
+
+# change output directory
+# see https://hydra.cc/docs/tutorials/basic/running_your_app/working_directory/
+hydra:
+  run:
+    dir: /tmp/hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: /tmp/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+defaults:
+  - _self_
+  - dataset: marioeval
+  - t2i: sd3 # basic model configuration

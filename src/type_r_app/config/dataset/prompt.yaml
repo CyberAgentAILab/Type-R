@@ -1,0 +1,4 @@
+_target_: type_r.dataset.PromptHFDS
+_partial_: true
+
+prompt_file: resources/prompt/example.txt

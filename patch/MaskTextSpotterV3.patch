@@ -1,0 +1,998 @@
+diff --git a/pyproject.toml b/pyproject.toml
+new file mode 100644
+index 0000000..c1d2a36
+--- /dev/null
++++ b/pyproject.toml
+@@ -0,0 +1,30 @@
++[build-system]
++requires = [
++    "setuptools",
++    "wheel",
++    "numpy>=2.0.0",
++    "torch",
++]
++build-backend = "setuptools.build_meta"
++
++[project]
++name = "MaskTextSpotterV3"
++version = "0.1.0"
++description = "Mask TextSpotter v3: Segmentation Proposal Network for Robust Scene Text Spotting."
++authors = [
++    { name = "Minghui Liao" },
++]
++dependencies=[
++    "torch",
++    "yacs>=0.1.6",
++    "apex",
++]
++
++[project.urls]
++homepage = "https://github.com/MhLiao/MaskTextSpotterV3"
++
++[tool.uv.sources]
++apex = { path = "../apex" }
++
++[tool.setuptools.packages.find]
++include = ["maskrcnn_benchmark*"]
+\ No newline at end of file
+diff --git a/maskrcnn_benchmark/csrc/cpu/ROIAlign_cpu.cpp b/maskrcnn_benchmark/csrc/cpu/ROIAlign_cpu.cpp
+index d531da6..79ceddf 100644
+--- a/maskrcnn_benchmark/csrc/cpu/ROIAlign_cpu.cpp
++++ b/maskrcnn_benchmark/csrc/cpu/ROIAlign_cpu.cpp
+@@ -239,7 +239,7 @@ at::Tensor ROIAlign_forward_cpu(const at::Tensor& input,
+     return output;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(input.type(), "ROIAlign_forward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "ROIAlign_forward", [&] {
+     ROIAlignForward_cpu_kernel<scalar_t>(
+          output_size,
+          input.data<scalar_t>(),
+diff --git a/maskrcnn_benchmark/csrc/cpu/nms_cpu.cpp b/maskrcnn_benchmark/csrc/cpu/nms_cpu.cpp
+index 1153dea..639ca47 100644
+--- a/maskrcnn_benchmark/csrc/cpu/nms_cpu.cpp
++++ b/maskrcnn_benchmark/csrc/cpu/nms_cpu.cpp
+@@ -68,7 +68,7 @@ at::Tensor nms_cpu(const at::Tensor& dets,
+                const at::Tensor& scores,
+                const float threshold) {
+   at::Tensor result;
+-  AT_DISPATCH_FLOATING_TYPES(dets.type(), "nms", [&] {
++  AT_DISPATCH_FLOATING_TYPES(dets.scalar_type(), "nms", [&] {
+     result = nms_cpu_kernel<scalar_t>(dets, scores, threshold);
+   });
+   return result;
+diff --git a/maskrcnn_benchmark/csrc/cuda/ROIAlign_cuda.cu b/maskrcnn_benchmark/csrc/cuda/ROIAlign_cuda.cu
+index 1142fb3..899fb66 100644
+--- a/maskrcnn_benchmark/csrc/cuda/ROIAlign_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/ROIAlign_cuda.cu
+@@ -1,10 +1,7 @@
+ // Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+-
+-#include <THC/THC.h>
+-#include <THC/THCAtomics.cuh>
+-#include <THC/THCDeviceUtils.cuh>
++#include <ATen/ceil_div.h>
+ 
+ // TODO make it in a common file
+ #define CUDA_1D_KERNEL_LOOP(i, n)                            \
+@@ -272,15 +269,15 @@ at::Tensor ROIAlign_forward_cuda(const at::Tensor& input,
+   auto output_size = num_rois * pooled_height * pooled_width * channels;
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)output_size, 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)output_size, 512L), 4096L));
+   dim3 block(512);
+ 
+   if (output.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return output;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(input.type(), "ROIAlign_forward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "ROIAlign_forward", [&] {
+     RoIAlignForward<scalar_t><<<grid, block, 0, stream>>>(
+          output_size,
+          input.contiguous().data<scalar_t>(),
+@@ -294,7 +291,7 @@ at::Tensor ROIAlign_forward_cuda(const at::Tensor& input,
+          rois.contiguous().data<scalar_t>(),
+          output.data<scalar_t>());
+   });
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return output;
+ }
+ 
+@@ -317,16 +314,16 @@ at::Tensor ROIAlign_backward_cuda(const at::Tensor& grad,
+ 
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)grad.numel(), 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)grad.numel(), 512L), 4096L));
+   dim3 block(512);
+ 
+   // handle possibly empty gradients
+   if (grad.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return grad_input;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(grad.type(), "ROIAlign_backward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(grad.scalar_type(), "ROIAlign_backward", [&] {
+     RoIAlignBackwardFeature<scalar_t><<<grid, block, 0, stream>>>(
+          grad.numel(),
+          grad.contiguous().data<scalar_t>(),
+@@ -341,6 +338,6 @@ at::Tensor ROIAlign_backward_cuda(const at::Tensor& grad,
+          grad_input.data<scalar_t>(),
+          rois.contiguous().data<scalar_t>());
+   });
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return grad_input;
+ }
+diff --git a/maskrcnn_benchmark/csrc/cuda/ROIPool_cuda.cu b/maskrcnn_benchmark/csrc/cuda/ROIPool_cuda.cu
+index 8f072ff..d44c699 100644
+--- a/maskrcnn_benchmark/csrc/cuda/ROIPool_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/ROIPool_cuda.cu
+@@ -1,11 +1,7 @@
+ // Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+-
+-#include <THC/THC.h>
+-#include <THC/THCAtomics.cuh>
+-#include <THC/THCDeviceUtils.cuh>
+-
++#include <ATen/ceil_div.h>
+ 
+ // TODO make it in a common file
+ #define CUDA_1D_KERNEL_LOOP(i, n)                            \
+@@ -126,15 +122,15 @@ std::tuple<at::Tensor, at::Tensor> ROIPool_forward_cuda(const at::Tensor& input,
+ 
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)output_size, 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)output_size, 512L), 4096L));
+   dim3 block(512);
+ 
+   if (output.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return std::make_tuple(output, argmax);
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(input.type(), "ROIPool_forward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "ROIPool_forward", [&] {
+     RoIPoolFForward<scalar_t><<<grid, block, 0, stream>>>(
+          output_size,
+          input.contiguous().data<scalar_t>(),
+@@ -148,7 +144,7 @@ std::tuple<at::Tensor, at::Tensor> ROIPool_forward_cuda(const at::Tensor& input,
+          output.data<scalar_t>(),
+          argmax.data<int>());
+   });
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return std::make_tuple(output, argmax);
+ }
+ 
+@@ -173,16 +169,16 @@ at::Tensor ROIPool_backward_cuda(const at::Tensor& grad,
+ 
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)grad.numel(), 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)grad.numel(), 512L), 4096L));
+   dim3 block(512);
+ 
+   // handle possibly empty gradients
+   if (grad.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return grad_input;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(grad.type(), "ROIPool_backward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(grad.scalar_type(), "ROIPool_backward", [&] {
+     RoIPoolFBackward<scalar_t><<<grid, block, 0, stream>>>(
+          grad.numel(),
+          grad.contiguous().data<scalar_t>(),
+@@ -197,6 +193,6 @@ at::Tensor ROIPool_backward_cuda(const at::Tensor& grad,
+          grad_input.data<scalar_t>(),
+          rois.contiguous().data<scalar_t>());
+   });
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return grad_input;
+ }
+diff --git a/maskrcnn_benchmark/csrc/cuda/SigmoidFocalLoss_cuda.cu b/maskrcnn_benchmark/csrc/cuda/SigmoidFocalLoss_cuda.cu
+index 456a5f2..b1f4d0f 100644
+--- a/maskrcnn_benchmark/csrc/cuda/SigmoidFocalLoss_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/SigmoidFocalLoss_cuda.cu
+@@ -4,10 +4,7 @@
+ // cyfu@cs.unc.edu
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+-
+-#include <THC/THC.h>
+-#include <THC/THCAtomics.cuh>
+-#include <THC/THCDeviceUtils.cuh>
++#include <ATen/ceil_div.h>
+ 
+ #include <cfloat>
+ 
+@@ -117,16 +114,16 @@ at::Tensor SigmoidFocalLoss_forward_cuda(
+   auto losses_size = num_samples * logits.size(1);
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)losses_size, 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)losses_size, 512L), 4096L));
+   
+   dim3 block(512);
+ 
+   if (losses.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return losses;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(logits.type(), "SigmoidFocalLoss_forward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(logits.scalar_type(), "SigmoidFocalLoss_forward", [&] {
+     SigmoidFocalLossForward<scalar_t><<<grid, block, 0, stream>>>(
+          losses_size,
+          logits.contiguous().data<scalar_t>(),
+@@ -137,7 +134,7 @@ at::Tensor SigmoidFocalLoss_forward_cuda(
+ 	 num_samples,
+          losses.data<scalar_t>());
+   });
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return losses;   
+ }	
+ 
+@@ -162,15 +159,15 @@ at::Tensor SigmoidFocalLoss_backward_cuda(
+   auto d_logits_size = num_samples * logits.size(1);
+   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+ 
+-  dim3 grid(std::min(THCCeilDiv((long)d_logits_size, 512L), 4096L));
++  dim3 grid(std::min(at::ceil_div((long)d_logits_size, 512L), 4096L));
+   dim3 block(512);
+ 
+   if (d_logits.numel() == 0) {
+-    THCudaCheck(cudaGetLastError());
++    AT_CUDA_CHECK(cudaGetLastError());
+     return d_logits;
+   }
+ 
+-  AT_DISPATCH_FLOATING_TYPES(logits.type(), "SigmoidFocalLoss_backward", [&] {
++  AT_DISPATCH_FLOATING_TYPES(logits.scalar_type(), "SigmoidFocalLoss_backward", [&] {
+     SigmoidFocalLossBackward<scalar_t><<<grid, block, 0, stream>>>(
+          d_logits_size,
+          logits.contiguous().data<scalar_t>(),
+@@ -183,7 +180,7 @@ at::Tensor SigmoidFocalLoss_backward_cuda(
+          d_logits.data<scalar_t>());
+   });
+ 
+-  THCudaCheck(cudaGetLastError());
++  AT_CUDA_CHECK(cudaGetLastError());
+   return d_logits;   
+ }	
+ 
+diff --git a/maskrcnn_benchmark/csrc/cuda/deform_conv_cuda.cu b/maskrcnn_benchmark/csrc/cuda/deform_conv_cuda.cu
+index 74f7d33..0953ef4 100644
+--- a/maskrcnn_benchmark/csrc/cuda/deform_conv_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/deform_conv_cuda.cu
+@@ -4,9 +4,6 @@
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+ 
+-#include <THC/THC.h>
+-#include <THC/THCDeviceUtils.cuh>
+-
+ #include <vector>
+ #include <iostream>
+ #include <cmath>
+@@ -69,26 +66,26 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+                  int padW, int dilationH, int dilationW, int group,
+                  int deformable_group) 
+ {
+-  AT_CHECK(weight.ndimension() == 4,
++  TORCH_CHECK(weight.ndimension() == 4,
+            "4D weight tensor (nOutputPlane,nInputPlane,kH,kW) expected, "
+            "but got: %s",
+            weight.ndimension());
+ 
+-  AT_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
++  TORCH_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
+ 
+-  AT_CHECK(kW > 0 && kH > 0,
++  TORCH_CHECK(kW > 0 && kH > 0,
+            "kernel size should be greater than zero, but got kH: %d kW: %d", kH,
+            kW);
+ 
+-  AT_CHECK((weight.size(2) == kH && weight.size(3) == kW),
++  TORCH_CHECK((weight.size(2) == kH && weight.size(3) == kW),
+            "kernel size should be consistent with weight, ",
+            "but got kH: %d kW: %d weight.size(2): %d, weight.size(3): %d", kH,
+            kW, weight.size(2), weight.size(3));
+ 
+-  AT_CHECK(dW > 0 && dH > 0,
++  TORCH_CHECK(dW > 0 && dH > 0,
+            "stride should be greater than zero, but got dH: %d dW: %d", dH, dW);
+ 
+-  AT_CHECK(
++  TORCH_CHECK(
+       dilationW > 0 && dilationH > 0,
+       "dilation should be greater than 0, but got dilationH: %d dilationW: %d",
+       dilationH, dilationW);
+@@ -104,7 +101,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+     dimw++;
+   }
+ 
+-  AT_CHECK(ndim == 3 || ndim == 4, "3D or 4D input tensor expected but got: %s",
++  TORCH_CHECK(ndim == 3 || ndim == 4, "3D or 4D input tensor expected but got: %s",
+            ndim);
+ 
+   long nInputPlane = weight.size(1) * group;
+@@ -116,7 +113,7 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+   long outputWidth =
+       (inputWidth + 2 * padW - (dilationW * (kW - 1) + 1)) / dW + 1;
+ 
+-  AT_CHECK(nInputPlane % deformable_group == 0,
++  TORCH_CHECK(nInputPlane % deformable_group == 0,
+            "input channels must divide deformable group size");
+ 
+   if (outputWidth < 1 || outputHeight < 1)
+@@ -126,27 +123,27 @@ void shape_check(at::Tensor input, at::Tensor offset, at::Tensor *gradOutput,
+         nInputPlane, inputHeight, inputWidth, nOutputPlane, outputHeight,
+         outputWidth);
+ 
+-  AT_CHECK(input.size(1) == nInputPlane,
++  TORCH_CHECK(input.size(1) == nInputPlane,
+            "invalid number of input planes, expected: %d, but got: %d",
+            nInputPlane, input.size(1));
+ 
+-  AT_CHECK((inputHeight >= kH && inputWidth >= kW),
++  TORCH_CHECK((inputHeight >= kH && inputWidth >= kW),
+            "input image is smaller than kernel");
+ 
+-  AT_CHECK((offset.size(2) == outputHeight && offset.size(3) == outputWidth),
++  TORCH_CHECK((offset.size(2) == outputHeight && offset.size(3) == outputWidth),
+            "invalid spatial size of offset, expected height: %d width: %d, but "
+            "got height: %d width: %d",
+            outputHeight, outputWidth, offset.size(2), offset.size(3));
+ 
+-  AT_CHECK((offset.size(1) == deformable_group * 2 * kH * kW),
++  TORCH_CHECK((offset.size(1) == deformable_group * 2 * kH * kW),
+            "invalid number of channels of offset");
+ 
+   if (gradOutput != NULL) {
+-    AT_CHECK(gradOutput->size(dimf) == nOutputPlane,
++    TORCH_CHECK(gradOutput->size(dimf) == nOutputPlane,
+              "invalid number of gradOutput planes, expected: %d, but got: %d",
+              nOutputPlane, gradOutput->size(dimf));
+ 
+-    AT_CHECK((gradOutput->size(dimh) == outputHeight &&
++    TORCH_CHECK((gradOutput->size(dimh) == outputHeight &&
+               gradOutput->size(dimw) == outputWidth),
+              "invalid size of gradOutput, expected height: %d width: %d , but "
+              "got height: %d width: %d",
+@@ -197,7 +194,7 @@ int deform_conv_forward_cuda(at::Tensor input, at::Tensor weight,
+   long outputHeight =
+       (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+ 
+-  AT_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
++  TORCH_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
+ 
+   output = output.view({batchSize / im2col_step, im2col_step, nOutputPlane,
+                         outputHeight, outputWidth});
+@@ -304,7 +301,7 @@ int deform_conv_backward_input_cuda(at::Tensor input, at::Tensor offset,
+   long outputHeight =
+       (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+ 
+-  AT_CHECK((offset.size(0) == batchSize), 3, "invalid batch size of offset");
++  TORCH_CHECK((offset.size(0) == batchSize), 3, "invalid batch size of offset");
+   gradInput = gradInput.view({batchSize, nInputPlane, inputHeight, inputWidth});
+   columns = at::zeros(
+       {nInputPlane * kW * kH, im2col_step * outputHeight * outputWidth},
+@@ -420,7 +417,7 @@ int deform_conv_backward_parameters_cuda(
+   long outputHeight =
+       (inputHeight + 2 * padH - (dilationH * (kH - 1) + 1)) / dH + 1;
+ 
+-  AT_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
++  TORCH_CHECK((offset.size(0) == batchSize), "invalid batch size of offset");
+ 
+   columns = at::zeros(
+       {nInputPlane * kW * kH, im2col_step * outputHeight * outputWidth},
+@@ -501,8 +498,8 @@ void modulated_deform_conv_cuda_forward(
+     const int dilation_w, const int group, const int deformable_group,
+     const bool with_bias) 
+ {
+-  AT_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
+-  AT_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
++  TORCH_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
++  TORCH_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
+ 
+   const int batch = input.size(0);
+   const int channels = input.size(1);
+@@ -583,8 +580,8 @@ void modulated_deform_conv_cuda_backward(
+     int pad_w, int dilation_h, int dilation_w, int group, int deformable_group,
+     const bool with_bias) 
+ {
+-  AT_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
+-  AT_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
++  TORCH_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
++  TORCH_CHECK(weight.is_contiguous(), "weight tensor has to be contiguous");
+ 
+   const int batch = input.size(0);
+   const int channels = input.size(1);
+diff --git a/maskrcnn_benchmark/csrc/cuda/deform_conv_kernel_cuda.cu b/maskrcnn_benchmark/csrc/cuda/deform_conv_kernel_cuda.cu
+index b4f8813..79246a3 100644
+--- a/maskrcnn_benchmark/csrc/cuda/deform_conv_kernel_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/deform_conv_kernel_cuda.cu
+@@ -264,7 +264,7 @@ void deformable_im2col(
+   int channel_per_deformable_group = channels / deformable_group;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_im.type(), "deformable_im2col_gpu", ([&] {
++      data_im.scalar_type(), "deformable_im2col_gpu", ([&] {
+         const scalar_t *data_im_ = data_im.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+         scalar_t *data_col_ = data_col.data<scalar_t>();
+@@ -358,7 +358,7 @@ void deformable_col2im(
+   int channel_per_deformable_group = channels / deformable_group;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_col.type(), "deformable_col2im_gpu", ([&] {
++      data_col.scalar_type(), "deformable_col2im_gpu", ([&] {
+         const scalar_t *data_col_ = data_col.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+         scalar_t *grad_im_ = grad_im.data<scalar_t>();
+@@ -456,7 +456,7 @@ void deformable_col2im_coord(
+   int channel_per_deformable_group = channels * ksize_h * ksize_w / deformable_group;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_col.type(), "deformable_col2im_coord_gpu", ([&] {
++      data_col.scalar_type(), "deformable_col2im_coord_gpu", ([&] {
+         const scalar_t *data_col_ = data_col.data<scalar_t>();
+         const scalar_t *data_im_ = data_im.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+@@ -786,7 +786,7 @@ void modulated_deformable_im2col_cuda(
+   const int num_kernels = channels * batch_size * height_col * width_col;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_im.type(), "modulated_deformable_im2col_gpu", ([&] {
++      data_im.scalar_type(), "modulated_deformable_im2col_gpu", ([&] {
+         const scalar_t *data_im_ = data_im.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+         const scalar_t *data_mask_ = data_mask.data<scalar_t>();
+@@ -818,7 +818,7 @@ void modulated_deformable_col2im_cuda(
+   const int num_kernels = channels * kernel_h * kernel_w * batch_size * height_col * width_col;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_col.type(), "modulated_deformable_col2im_gpu", ([&] {
++      data_col.scalar_type(), "modulated_deformable_col2im_gpu", ([&] {
+         const scalar_t *data_col_ = data_col.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+         const scalar_t *data_mask_ = data_mask.data<scalar_t>();
+@@ -851,7 +851,7 @@ void modulated_deformable_col2im_coord_cuda(
+   const int channel_per_deformable_group = channels * kernel_h * kernel_w / deformable_group;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data_col.type(), "modulated_deformable_col2im_coord_gpu", ([&] {
++      data_col.scalar_type(), "modulated_deformable_col2im_coord_gpu", ([&] {
+         const scalar_t *data_col_ = data_col.data<scalar_t>();
+         const scalar_t *data_im_ = data_im.data<scalar_t>();
+         const scalar_t *data_offset_ = data_offset.data<scalar_t>();
+diff --git a/maskrcnn_benchmark/csrc/cuda/deform_pool_cuda.cu b/maskrcnn_benchmark/csrc/cuda/deform_pool_cuda.cu
+index 71f305a..8f98542 100644
+--- a/maskrcnn_benchmark/csrc/cuda/deform_pool_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/deform_pool_cuda.cu
+@@ -8,9 +8,6 @@
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+ 
+-#include <THC/THC.h>
+-#include <THC/THCDeviceUtils.cuh>
+-
+ #include <vector>
+ #include <iostream>
+ #include <cmath>
+@@ -39,7 +36,7 @@ void deform_psroi_pooling_cuda_forward(
+     const int output_dim, const int group_size, const int pooled_size,
+     const int part_size, const int sample_per_part, const float trans_std) 
+ {
+-  AT_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
++  TORCH_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
+ 
+   const int batch = input.size(0);
+   const int channels = input.size(1);
+@@ -65,8 +62,8 @@ void deform_psroi_pooling_cuda_backward(
+     const int group_size, const int pooled_size, const int part_size,
+     const int sample_per_part, const float trans_std) 
+ {
+-  AT_CHECK(out_grad.is_contiguous(), "out_grad tensor has to be contiguous");
+-  AT_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
++  TORCH_CHECK(out_grad.is_contiguous(), "out_grad tensor has to be contiguous");
++  TORCH_CHECK(input.is_contiguous(), "input tensor has to be contiguous");
+ 
+   const int batch = input.size(0);
+   const int channels = input.size(1);
+diff --git a/maskrcnn_benchmark/csrc/cuda/deform_pool_kernel_cuda.cu b/maskrcnn_benchmark/csrc/cuda/deform_pool_kernel_cuda.cu
+index 127899e..1477568 100644
+--- a/maskrcnn_benchmark/csrc/cuda/deform_pool_kernel_cuda.cu
++++ b/maskrcnn_benchmark/csrc/cuda/deform_pool_kernel_cuda.cu
+@@ -290,7 +290,7 @@ void DeformablePSROIPoolForward(const at::Tensor data,
+   const int channels_each_class = no_trans ? output_dim : output_dim / num_classes;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      data.type(), "deformable_psroi_pool_forward", ([&] {
++      data.scalar_type(), "deformable_psroi_pool_forward", ([&] {
+         const scalar_t *bottom_data = data.data<scalar_t>();
+         const scalar_t *bottom_rois = bbox.data<scalar_t>();
+         const scalar_t *bottom_trans = no_trans ? NULL : trans.data<scalar_t>();
+@@ -341,7 +341,7 @@ void DeformablePSROIPoolBackwardAcc(const at::Tensor out_grad,
+   const int channels_each_class = no_trans ? output_dim : output_dim / num_classes;
+ 
+   AT_DISPATCH_FLOATING_TYPES_AND_HALF(
+-      out_grad.type(), "deformable_psroi_pool_backward_acc", ([&] {
++      out_grad.scalar_type(), "deformable_psroi_pool_backward_acc", ([&] {
+         const scalar_t *top_diff = out_grad.data<scalar_t>();
+         const scalar_t *bottom_data = data.data<scalar_t>();
+         const scalar_t *bottom_rois = bbox.data<scalar_t>();
+diff --git a/maskrcnn_benchmark/csrc/cuda/nms.cu b/maskrcnn_benchmark/csrc/cuda/nms.cu
+index 833d852..d520def 100644
+--- a/maskrcnn_benchmark/csrc/cuda/nms.cu
++++ b/maskrcnn_benchmark/csrc/cuda/nms.cu
+@@ -1,9 +1,8 @@
+ // Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+ #include <ATen/ATen.h>
+ #include <ATen/cuda/CUDAContext.h>
+-
+-#include <THC/THC.h>
+-#include <THC/THCDeviceUtils.cuh>
++#include <ATen/ceil_div.h>
++#include <ATen/cuda/ThrustAllocator.h>
+ 
+ #include <vector>
+ #include <iostream>
+@@ -61,7 +60,7 @@ __global__ void nms_kernel(const int n_boxes, const float nms_overlap_thresh,
+         t |= 1ULL << i;
+       }
+     }
+-    const int col_blocks = THCCeilDiv(n_boxes, threadsPerBlock);
++    const int col_blocks = at::ceil_div(n_boxes, threadsPerBlock);
+     dev_mask[cur_box_idx * col_blocks + col_start] = t;
+   }
+ }
+@@ -76,20 +75,16 @@ at::Tensor nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
+ 
+   int boxes_num = boxes.size(0);
+ 
+-  const int col_blocks = THCCeilDiv(boxes_num, threadsPerBlock);
++  const int col_blocks = at::ceil_div(boxes_num, threadsPerBlock);
+ 
+   scalar_t* boxes_dev = boxes_sorted.data<scalar_t>();
+ 
+-  THCState *state = at::globalContext().lazyInitCUDA(); // TODO replace with getTHCState
+-
+   unsigned long long* mask_dev = NULL;
+-  //THCudaCheck(THCudaMalloc(state, (void**) &mask_dev,
+-  //                      boxes_num * col_blocks * sizeof(unsigned long long)));
+ 
+-  mask_dev = (unsigned long long*) THCudaMalloc(state, boxes_num * col_blocks * sizeof(unsigned long long));
++  mask_dev = (unsigned long long*) c10::cuda::CUDACachingAllocator::raw_alloc(boxes_num * col_blocks * sizeof(unsigned long long));
+ 
+-  dim3 blocks(THCCeilDiv(boxes_num, threadsPerBlock),
+-              THCCeilDiv(boxes_num, threadsPerBlock));
++  dim3 blocks(at::ceil_div(boxes_num, threadsPerBlock),
++              at::ceil_div(boxes_num, threadsPerBlock));
+   dim3 threads(threadsPerBlock);
+   nms_kernel<<<blocks, threads>>>(boxes_num,
+                                   nms_overlap_thresh,
+@@ -97,7 +92,7 @@ at::Tensor nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
+                                   mask_dev);
+ 
+   std::vector<unsigned long long> mask_host(boxes_num * col_blocks);
+-  THCudaCheck(cudaMemcpy(&mask_host[0],
++  AT_CUDA_CHECK(cudaMemcpy(&mask_host[0],
+                         mask_dev,
+                         sizeof(unsigned long long) * boxes_num * col_blocks,
+                         cudaMemcpyDeviceToHost));
+@@ -122,7 +117,7 @@ at::Tensor nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
+     }
+   }
+ 
+-  THCudaFree(state, mask_dev);
++  c10::cuda::CUDACachingAllocator::raw_delete(mask_dev);
+   // TODO improve this part
+   return std::get<0>(order_t.index({
+                        keep.narrow(/*dim=*/0, /*start=*/0, /*length=*/num_to_keep).to(
+diff --git a/maskrcnn_benchmark/engine/trainer.py b/maskrcnn_benchmark/engine/trainer.py
+index 552e6a9..f410b69 100644
+--- a/maskrcnn_benchmark/engine/trainer.py
++++ b/maskrcnn_benchmark/engine/trainer.py
+@@ -8,7 +8,7 @@ import torch
+ from maskrcnn_benchmark.utils.comm import get_world_size, is_main_process
+ from maskrcnn_benchmark.utils.metric_logger import MetricLogger
+ import torch.distributed as dist
+-from apex import amp
++# from apex import amp
+ 
+ 
+ def reduce_loss_dict(loss_dict):
+diff --git a/maskrcnn_benchmark/layers/nms.py b/maskrcnn_benchmark/layers/nms.py
+index 855d032..c0548aa 100644
+--- a/maskrcnn_benchmark/layers/nms.py
++++ b/maskrcnn_benchmark/layers/nms.py
+@@ -3,9 +3,10 @@
+ from maskrcnn_benchmark import _C
+ 
+ # nms = _C.nms
+-from apex import amp
++#from apex import amp
+ 
+ # Only valid with fp32 inputs - give AMP the hint
+-nms = amp.float_function(_C.nms)
++#nms = amp.float_function(_C.nms)
++nms = _C.nms
+ # nms.__doc__ = """
+ # This function performs Non-maximum suppresion"""
+diff --git a/maskrcnn_benchmark/layers/roi_align.py b/maskrcnn_benchmark/layers/roi_align.py
+index 1036f96..7f512b1 100644
+--- a/maskrcnn_benchmark/layers/roi_align.py
++++ b/maskrcnn_benchmark/layers/roi_align.py
+@@ -6,7 +6,7 @@ from torch.autograd.function import once_differentiable
+ from torch.nn.modules.utils import _pair
+ 
+ from maskrcnn_benchmark import _C
+-from apex import amp
++#from apex import amp
+ 
+ class _ROIAlign(Function):
+     @staticmethod
+@@ -54,7 +54,7 @@ class ROIAlign(nn.Module):
+         self.spatial_scale = spatial_scale
+         self.sampling_ratio = sampling_ratio
+ 
+-    @amp.float_function
++    #@amp.float_function
+     def forward(self, input, rois):
+         return roi_align(
+             input, rois, self.output_size, self.spatial_scale, self.sampling_ratio
+diff --git a/maskrcnn_benchmark/layers/roi_pool.py b/maskrcnn_benchmark/layers/roi_pool.py
+index b09e699..4faf105 100644
+--- a/maskrcnn_benchmark/layers/roi_pool.py
++++ b/maskrcnn_benchmark/layers/roi_pool.py
+@@ -6,7 +6,7 @@ from torch.autograd.function import once_differentiable
+ from torch.nn.modules.utils import _pair
+ 
+ from maskrcnn_benchmark import _C
+-from apex import amp
++#from apex import amp
+ 
+ class _ROIPool(Function):
+     @staticmethod
+@@ -52,7 +52,7 @@ class ROIPool(nn.Module):
+         self.output_size = output_size
+         self.spatial_scale = spatial_scale
+ 
+-    @amp.float_function
++    #@amp.float_function
+     def forward(self, input, rois):
+         return roi_pool(input, rois, self.output_size, self.spatial_scale)
+ 
+diff --git a/maskrcnn_benchmark/modeling/segmentation/inference.py b/maskrcnn_benchmark/modeling/segmentation/inference.py
+index 8f638b0..be0cfdc 100644
+--- a/maskrcnn_benchmark/modeling/segmentation/inference.py
++++ b/maskrcnn_benchmark/modeling/segmentation/inference.py
+@@ -1,17 +1,14 @@
+ #!/usr/bin/env python3
+-import numpy as np
+-import torch
++import random
++
+ import cv2
++import numpy as np
+ import pyclipper
+-from shapely.geometry import Polygon
+-
++import torch
+ from maskrcnn_benchmark.structures.bounding_box import BoxList
+ from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist, cat_boxlist_gt
+-from maskrcnn_benchmark.structures.boxlist_ops import remove_small_boxes
+ from maskrcnn_benchmark.structures.segmentation_mask import SegmentationMask
+-import random
+-
+-import time
++from shapely.geometry import Polygon
+ 
+ 
+ class SEGPostProcessor(torch.nn.Module):
+@@ -50,8 +47,12 @@ class SEGPostProcessor(torch.nn.Module):
+         """
+         # Get the device we're operating on
+         # device = proposals[0].bbox.
+-        if self.cfg.MODEL.SEG.USE_SEG_POLY or self.cfg.MODEL.ROI_BOX_HEAD.USE_MASKED_FEATURE or self.cfg.MODEL.ROI_MASK_HEAD.USE_MASKED_FEATURE:
+-            gt_boxes = [target.copy_with_fields(['masks']) for target in targets]
++        if (
++            self.cfg.MODEL.SEG.USE_SEG_POLY
++            or self.cfg.MODEL.ROI_BOX_HEAD.USE_MASKED_FEATURE
++            or self.cfg.MODEL.ROI_MASK_HEAD.USE_MASKED_FEATURE
++        ):
++            gt_boxes = [target.copy_with_fields(["masks"]) for target in targets]
+         else:
+             gt_boxes = [target.copy_with_fields([]) for target in targets]
+         # later cat of bbox requires all fields to be present for all bbox
+@@ -73,17 +74,17 @@ class SEGPostProcessor(torch.nn.Module):
+         aug_boxes = torch.zeros((4, N, 4), device=device)
+         aug_boxes[0, :, :] = boxes.clone()
+         xmin, ymin, xmax, ymax = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+-        x_center = (xmin + xmax) / 2.
+-        y_center = (ymin + ymax) / 2.
++        x_center = (xmin + xmax) / 2.0
++        y_center = (ymin + ymax) / 2.0
+         width = xmax - xmin
+         height = ymax - ymin
+         for i in range(3):
+             choice = random.random()
+             if choice < 0.5:
+                 # shrink or expand
+-                ratio = (torch.randn((N,), device=device) * 3 + 1) / 2.
++                ratio = (torch.randn((N,), device=device) * 3 + 1) / 2.0
+                 height = height * ratio
+-                ratio = (torch.randn((N,), device=device) * 3 + 1) / 2.
++                ratio = (torch.randn((N,), device=device) * 3 + 1) / 2.0
+                 width = width * ratio
+             else:
+                 move_x = width * (torch.randn((N,), device=device) * 4 - 2)
+@@ -94,7 +95,7 @@ class SEGPostProcessor(torch.nn.Module):
+             boxes[:, 2] = x_center + width / 2
+             boxes[:, 1] = y_center - height / 2
+             boxes[:, 3] = y_center + height / 2
+-            aug_boxes[i+1, :, :] = boxes.clone()
++            aug_boxes[i + 1, :, :] = boxes.clone()
+         return aug_boxes.reshape((-1, 4))
+ 
+     def forward_for_single_feature_map(self, pred, image_shapes):
+@@ -126,21 +127,25 @@ class SEGPostProcessor(torch.nn.Module):
+         for batch_index in range(N):
+             image_shape = image_shapes[batch_index]
+             boxes, scores, rotated_boxes, polygons = self.boxes_from_bitmap(
+-                pred_map_numpy[batch_index],
+-                bitmap_numpy[batch_index], width, height)
++                pred_map_numpy[batch_index], bitmap_numpy[batch_index], width, height
++            )
+             boxes = boxes.to(device)
+             if self.training and self.cfg.MODEL.SEG.AUG_PROPOSALS:
+                 boxes = self.aug_tensor_proposals(boxes)
+             if boxes.shape[0] > self.top_n:
+-                boxes = boxes[:self.top_n, :]
++                boxes = boxes[: self.top_n, :]
+                 # _, top_index = scores.topk(self.top_n, 0, sorted=False)
+                 # boxes = boxes[top_index, :]
+                 # scores = scores[top_index]
+             # boxlist = BoxList(boxes, (width, height), mode="xyxy")
+             boxlist = BoxList(boxes, (image_shape[1], image_shape[0]), mode="xyxy")
+-            if self.cfg.MODEL.SEG.USE_SEG_POLY or self.cfg.MODEL.ROI_BOX_HEAD.USE_MASKED_FEATURE or self.cfg.MODEL.ROI_MASK_HEAD.USE_MASKED_FEATURE:
++            if (
++                self.cfg.MODEL.SEG.USE_SEG_POLY
++                or self.cfg.MODEL.ROI_BOX_HEAD.USE_MASKED_FEATURE
++                or self.cfg.MODEL.ROI_MASK_HEAD.USE_MASKED_FEATURE
++            ):
+                 masks = SegmentationMask(polygons, (image_shape[1], image_shape[0]))
+-                boxlist.add_field('masks', masks)
++                boxlist.add_field("masks", masks)
+             boxlist = boxlist.clip_to_image(remove_empty=False)
+             # boxlist = remove_small_boxes(boxlist, self.min_size)
+             boxes_batch.append(boxlist)
+@@ -161,7 +166,9 @@ class SEGPostProcessor(torch.nn.Module):
+             boxlists (list[BoxList]): bounding boxes
+         """
+         sampled_boxes = []
+-        boxes_batch, rotated_boxes_batch, polygons_batch, scores_batch = self.forward_for_single_feature_map(seg_output, image_shapes)
++        boxes_batch, rotated_boxes_batch, polygons_batch, scores_batch = (
++            self.forward_for_single_feature_map(seg_output, image_shapes)
++        )
+         if not self.training:
+             return boxes_batch, rotated_boxes_batch, polygons_batch, scores_batch
+         sampled_boxes.append(boxes_batch)
+@@ -253,14 +260,18 @@ class SEGPostProcessor(torch.nn.Module):
+             if not self.training and self.box_thresh > score:
+                 continue
+             if polygon.shape[0] > 2:
+-                polygon = self.unclip(polygon, expand_ratio=self.cfg.MODEL.SEG.EXPAND_RATIO)
++                polygon = self.unclip(
++                    polygon, expand_ratio=self.cfg.MODEL.SEG.EXPAND_RATIO
++                )
+                 if len(polygon) > 1:
+                     continue
+             else:
+                 continue
+             # polygon = polygon.reshape(-1, 2)
+             polygon = polygon.reshape(-1)
+-            box = self.unclip(points, expand_ratio=self.cfg.MODEL.SEG.BOX_EXPAND_RATIO).reshape(-1, 2)
++            box = self.unclip(
++                points, expand_ratio=self.cfg.MODEL.SEG.BOX_EXPAND_RATIO
++            ).reshape(-1, 2)
+             box = np.array(box)
+             box[:, 0] = np.clip(np.round(box[:, 0] / width * dest_width), 0, dest_width)
+             box[:, 1] = np.clip(
+@@ -277,7 +288,7 @@ class SEGPostProcessor(torch.nn.Module):
+             polygons.append([polygon])
+         if len(boxes) == 0:
+             boxes = [torch.from_numpy(np.array([0, 0, 0, 0]))]
+-            scores = [0.]
++            scores = [0.0]
+ 
+         boxes = torch.stack(boxes)
+         scores = torch.from_numpy(np.array(scores))
+@@ -285,16 +296,16 @@ class SEGPostProcessor(torch.nn.Module):
+ 
+     def aug_proposals(self, box):
+         xmin, ymin, xmax, ymax = box[0], box[1], box[2], box[3]
+-        x_center = int((xmin + xmax) / 2.)
+-        y_center = int((ymin + ymax) / 2.)
++        x_center = int((xmin + xmax) / 2.0)
++        y_center = int((ymin + ymax) / 2.0)
+         width = xmax - xmin
+         height = ymax - ymin
+         choice = random.random()
+         if choice < 0.5:
+             # shrink or expand
+-            ratio = (random.random() * 3 + 1) / 2.
++            ratio = (random.random() * 3 + 1) / 2.0
+             height = height * ratio
+-            ratio = (random.random() * 3 + 1) / 2.
++            ratio = (random.random() * 3 + 1) / 2.0
+             width = width * ratio
+         else:
+             move_x = width * (random.random() * 4 - 2)
+@@ -312,7 +323,13 @@ class SEGPostProcessor(torch.nn.Module):
+         distance = poly.area * expand_ratio / poly.length
+         offset = pyclipper.PyclipperOffset()
+         offset.AddPath(box, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+-        expanded = np.array(offset.Execute(distance))
++        offset_polygons = offset.Execute(distance)
++        if len(offset_polygons) > 1:
++            expanded = max(offset_polygons, key=lambda p: Polygon(p).area)
++        elif len(offset_polygons) == 1:
++            expanded = np.array(offset_polygons)
++        else:
++            expanded = np.array(box)
+         return expanded
+ 
+     def get_mini_boxes(self, contour):
+@@ -348,10 +365,10 @@ class SEGPostProcessor(torch.nn.Module):
+     def box_score_fast(self, bitmap, _box):
+         h, w = bitmap.shape[:2]
+         box = _box.copy()
+-        xmin = np.clip(np.floor(box[:, 0].min()).astype(np.int), 0, w - 1)
+-        xmax = np.clip(np.ceil(box[:, 0].max()).astype(np.int), 0, w - 1)
+-        ymin = np.clip(np.floor(box[:, 1].min()).astype(np.int), 0, h - 1)
+-        ymax = np.clip(np.ceil(box[:, 1].max()).astype(np.int), 0, h - 1)
++        xmin = np.clip(np.floor(box[:, 0].min()).astype(np.int64), 0, w - 1)
++        xmax = np.clip(np.ceil(box[:, 0].max()).astype(np.int64), 0, w - 1)
++        ymin = np.clip(np.floor(box[:, 1].min()).astype(np.int64), 0, h - 1)
++        ymax = np.clip(np.ceil(box[:, 1].max()).astype(np.int64), 0, h - 1)
+ 
+         mask = np.zeros((ymax - ymin + 1, xmax - xmin + 1), dtype=np.uint8)
+         box[:, 0] = box[:, 0] - xmin
+@@ -373,6 +390,6 @@ def make_seg_postprocessor(config, is_train):
+         binary_thresh=binary_thresh,
+         box_thresh=box_thresh,
+         min_size=min_size,
+-        cfg = config
++        cfg=config,
+     )
+     return box_selector
+diff --git a/maskrcnn_benchmark/utils/model_zoo.py b/maskrcnn_benchmark/utils/model_zoo.py
+index 22aede8..30b35c2 100644
+--- a/maskrcnn_benchmark/utils/model_zoo.py
++++ b/maskrcnn_benchmark/utils/model_zoo.py
+@@ -3,7 +3,7 @@ import os
+ import sys
+ 
+ try:
+-    from torch.hub import _download_url_to_file
++    from torch.hub import download_url_to_file
+     from torch.hub import urlparse
+     from torch.hub import HASH_REGEX
+ except ImportError:
+@@ -56,6 +56,6 @@ def cache_url(url, model_dir=None, progress=True):
+             # if the hash_prefix is less than 6 characters
+             if len(hash_prefix) < 6:
+                 hash_prefix = None
+-        _download_url_to_file(url, cached_file, hash_prefix, progress=progress)
++        download_url_to_file(url, cached_file, hash_prefix, progress=progress)
+     synchronize()
+     return cached_file
+\ No newline at end of file
+diff --git a/setup.py b/setup.py
+index 102dede..a34b51a 100644
+--- a/setup.py
++++ b/setup.py
+@@ -15,8 +15,7 @@ requirements = ["torch", "torchvision"]
+ 
+ 
+ def get_extensions():
+-    this_dir = os.path.dirname(os.path.abspath(__file__))
+-    extensions_dir = os.path.join(this_dir, "maskrcnn_benchmark", "csrc")
++    extensions_dir = os.path.join("maskrcnn_benchmark", "csrc")
+ 
+     main_file = glob.glob(os.path.join(extensions_dir, "*.cpp"))
+     source_cpu = glob.glob(os.path.join(extensions_dir, "cpu", "*.cpp"))
+@@ -28,7 +27,7 @@ def get_extensions():
+     extra_compile_args = {"cxx": []}
+     define_macros = []
+ 
+-    if torch.cuda.is_available() and CUDA_HOME is not None:
++    if CUDA_HOME is not None:
+     # if True:
+         extension = CUDAExtension
+         sources += source_cuda
+@@ -40,8 +39,6 @@ def get_extensions():
+             "-D__CUDA_NO_HALF2_OPERATORS__",
+         ]
+ 
+-    sources = [os.path.join(extensions_dir, s) for s in sources]
+-
+     include_dirs = [extensions_dir]
+ 
+     ext_modules = [
+@@ -56,15 +53,7 @@ def get_extensions():
+ 
+     return ext_modules
+ 
+-
+ setup(
+-    name="maskrcnn_benchmark",
+-    version="0.1",
+-    author="fmassa",
+-    url="https://github.com/facebookresearch/maskrnn-benchmark",
+-    description="object detection in pytorch",
+-    packages=find_packages(exclude=("configs", "examples", "test",)),
+-    # install_requires=requirements,
+     ext_modules=get_extensions(),
+-    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
++    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension.with_options(use_ninja=False)},
+ )
+diff --git a/tools/test_net.py b/tools/test_net.py
+index 63a7ff4..ea8538e 100644
+--- a/tools/test_net.py
++++ b/tools/test_net.py
+@@ -17,10 +17,10 @@ from maskrcnn_benchmark.utils.comm import synchronize, get_rank
+ from maskrcnn_benchmark.utils.logging import setup_logger
+ from maskrcnn_benchmark.utils.miscellaneous import mkdir
+ # Check if we can enable mixed-precision via apex.amp
+-try:
+-    from apex import amp
+-except ImportError:
+-    raise ImportError('Use APEX for mixed precision via apex.amp')
++#try:
++#    from apex import amp
++#except ImportError:
++#    raise ImportError('Use APEX for mixed precision via apex.amp')
+ 
+ def main():
+     parser = argparse.ArgumentParser(description="PyTorch Object Detection Inference")
+diff --git a/tools/train_net.py b/tools/train_net.py
+index 20fefe5..b9d6a8c 100644
+--- a/tools/train_net.py
++++ b/tools/train_net.py
+@@ -25,10 +25,10 @@ from maskrcnn_benchmark.utils.logging import setup_logger, Logger
+ from maskrcnn_benchmark.utils.miscellaneous import mkdir
+ # See if we can use apex.DistributedDataParallel instead of the torch default,
+ # and enable mixed-precision via apex.amp
+-try:
+-    from apex import amp
+-except ImportError:
+-    raise ImportError('Use APEX for multi-precision via apex.amp')
++#try:
++#    from apex import amp
++#except ImportError:
++#    raise ImportError('Use APEX for multi-precision via apex.amp')
+ 
+ def train(cfg, local_rank, distributed):
+     model = build_detection_model(cfg)

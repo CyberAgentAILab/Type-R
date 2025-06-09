@@ -1,0 +1,4 @@
+_target_: type_r.ocr.trocr.TROCRRecog
+_partial_: true
+
+weight_path: resources/weight/ocr/trocr-large-str

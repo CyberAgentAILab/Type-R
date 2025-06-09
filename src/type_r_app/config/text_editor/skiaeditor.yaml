@@ -1,0 +1,5 @@
+_target_: type_r.editor.skia.SkiaEditor
+_partial_: true
+
+font_path: resources/data/arial_unicode_ms.ttf
+white_bg: false
