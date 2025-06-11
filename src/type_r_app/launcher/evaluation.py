@@ -143,14 +143,17 @@ def eval_fid_score(evaldata, hfds) -> float:
             img_list = [elm.image_paths[0] for elm in evaldata]
             for i, img in enumerate(img_list):
                 _from = img
-                _to = f"{tmpdirname_gt}/{i}.jpg"
+                _to = f"{tmpdirname_pred}/{i}.jpg"
                 shutil.copy(_from, _to)
             for i, elm in enumerate(hfds):
                 img = elm["image"]
                 if img is not None:
-                    _to = f"{tmpdirname_pred}/{i}.jpg"
+                    _to = f"{tmpdirname_gt}/{i}.jpg"
                     img.save(_to)
-            if len(os.listdir(tmpdirname_gt)) == 0 or len(os.listdir(tmpdirname_pred)) == 0:
+            if (
+                len(os.listdir(tmpdirname_gt)) == 0
+                or len(os.listdir(tmpdirname_pred)) == 0
+            ):
                 logger.info("No images found for FID evaluation.")
                 return "n/a"
             # Calculate FID
