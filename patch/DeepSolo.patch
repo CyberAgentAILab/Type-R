@@ -142,7 +142,7 @@ index 0000000..3bd1718
 +    "editdistance",
 +    "opencv-python",
 +    "detectron2",
-+    "protobuf==3.20.*",
++    "protobuf>=3.20,<4.0",
 +]
 +
 +[project.urls]
