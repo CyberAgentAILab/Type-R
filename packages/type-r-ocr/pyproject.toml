@@ -19,7 +19,7 @@ dependencies = [
     "pytorch-lightning>=2.5.0.post0",
     "transformers>=4.49.0",
     "natsort>=8.4.0",
-    "paddleocr>=2.9.0",
+    "paddleocr>=2.9.0,<3.0.0",
     "addict>=2.4.0",
     "MaskTextSpotterV3",
     "DeepSolo",
