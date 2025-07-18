@@ -781,7 +781,7 @@ requires-dist = [
     { name = "opencv-python" },
     { name = "pillow", specifier = ">=6.0" },
     { name = "polygon3" },
-    { name = "protobuf", specifier = "==3.20.*" },
+    { name = "protobuf", specifier = ">=3.20,<4.0" },
     { name = "rapidfuzz" },
     { name = "scikit-image" },
     { name = "shapely" },
@@ -5169,7 +5169,6 @@ dependencies = [
     { name = "type-r-dataset" },
     { name = "type-r-editor" },
     { name = "type-r-eraser" },
-    { name = "type-r-eval" },
     { name = "type-r-ocr" },
     { name = "type-r-t2i" },
 ]
@@ -5177,6 +5176,9 @@ dependencies = [
 [package.optional-dependencies]
 accelerate = [
     { name = "accelerate" },
+]
+full = [
+    { name = "type-r-eval" },
 ]
 
 [package.dev-dependencies]
@@ -5205,11 +5207,11 @@ requires-dist = [
     { name = "type-r-dataset", editable = "packages/type-r-dataset" },
     { name = "type-r-editor", editable = "packages/type-r-editor" },
     { name = "type-r-eraser", editable = "packages/type-r-eraser" },
-    { name = "type-r-eval", editable = "packages/type-r-eval" },
+    { name = "type-r-eval", marker = "extra == 'full'", editable = "packages/type-r-eval" },
     { name = "type-r-ocr", editable = "packages/type-r-ocr" },
     { name = "type-r-t2i", editable = "packages/type-r-t2i" },
 ]
-provides-extras = ["accelerate"]
+provides-extras = ["accelerate", "full"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -5329,7 +5331,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "scikit-learn" },
-    { name = "type-r-ocr" },
+    { name = "type-r-ocr", extra = ["full"] },
     { name = "vlmeval" },
 ]
 
@@ -5341,7 +5343,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
-    { name = "type-r-ocr", editable = "packages/type-r-ocr" },
+    { name = "type-r-ocr", extras = ["full"], editable = "packages/type-r-ocr" },
     { name = "vlmeval", directory = "packages/VLMEvalKit" },
 ]
 
@@ -5351,10 +5353,8 @@ version = "0.1.0"
 source = { editable = "packages/type-r-ocr" }
 dependencies = [
     { name = "addict" },
-    { name = "craft-text-detector" },
-    { name = "deepsolo" },
     { name = "einops" },
-    { name = "masktextspotterv3" },
+    { name = "lmdb" },
     { name = "modelscope" },
     { name = "natsort" },
     { name = "opencv-python" },
@@ -5372,17 +5372,25 @@ dependencies = [
     { name = "type-r-core" },
 ]
 
+[package.optional-dependencies]
+full = [
+    { name = "craft-text-detector" },
+    { name = "deepsolo" },
+    { name = "masktextspotterv3" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "addict", specifier = ">=2.4.0" },
-    { name = "craft-text-detector", directory = "packages/craft-text-detector" },
-    { name = "deepsolo", directory = "packages/DeepSolo" },
+    { name = "craft-text-detector", marker = "extra == 'full'", directory = "packages/craft-text-detector" },
+    { name = "deepsolo", marker = "extra == 'full'", directory = "packages/DeepSolo" },
     { name = "einops", specifier = ">=0.8.1" },
-    { name = "masktextspotterv3", directory = "packages/MaskTextSpotterV3" },
+    { name = "lmdb" },
+    { name = "masktextspotterv3", marker = "extra == 'full'", directory = "packages/MaskTextSpotterV3" },
     { name = "modelscope", specifier = "<1.24.0" },
     { name = "natsort", specifier = ">=8.4.0" },
     { name = "opencv-python", specifier = ">=4.6.0.66" },
-    { name = "paddleocr", specifier = ">=2.9.0" },
+    { name = "paddleocr", specifier = ">=2.9.0,<3.0.0" },
     { name = "paddlepaddle", specifier = ">=2.6.2" },
     { name = "pillow", specifier = ">=10.4.0" },
     { name = "pyclipper", specifier = ">=1.3.0.post6" },
@@ -5393,6 +5401,7 @@ requires-dist = [
     { name = "transformers", specifier = ">=4.49.0" },
     { name = "type-r-core", editable = "packages/type-r-core" },
 ]
+provides-extras = ["full"]
 
 [[package]]
 name = "type-r-t2i"
@@ -5414,7 +5423,7 @@ dependencies = [
 requires-dist = [
     { name = "accelerate", specifier = ">=0.34.2" },
     { name = "diffusers", specifier = ">=0.32.2" },
-    { name = "google-genai", specifier = ">=1.19.0" },
+    { name = "google-genai", specifier = ">=1.0.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openai", specifier = ">=1.65.5" },
     { name = "pillow", specifier = ">=10.4.0" },

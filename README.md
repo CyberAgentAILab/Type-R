@@ -29,7 +29,6 @@ Accepted to CVPR 2025 as a highlight paper
 </div>
 
 
-
 ![teaser](images/teaser.png)
 
 The repository is the official implementation of the paper entitled Type-R: Automatically Retouching Typos for Text-to-Image Generation.  
@@ -98,10 +97,10 @@ Once the build dependencies are installed, run the following command:
 git clone --recursive https://github.com/CyberAgentAILab/Type-R
 cd Type-R
 ./script/apply_patch.sh
-uv sync
+uv sync --extra full
 ```
 
-> ⚠️ uv sync may take up to 30 minutes due to building some dependencies. If it completes instantly, your environment might be misconfigured. In that case, refer to the Dockerfile, or try building within a Docker container.  
+> ⚠️ uv sync may take up to 30 minutes due to building some dependencies. If it completes instantly, your environment might be misconfigured. In that case, refer to the Dockerfile, or try building within a Docker container. You may omit the `--extra full` option if you do not run the evaluation pipeline to reduce dependencies.
 > ⚠️ This project uses a namespace package, which is currently incompatible with editable installs. Be sure to pass the --no-editable option to uv when syncing dependencies.  
 
 To reset the applied patch:
@@ -119,7 +118,13 @@ You can download them using the following command:
 uv run python tools/dl_resources.py
 ```
 
-These resources include pretrained model weights, the MarioEval benchmark dataset, and font files.
+Or, add the `--full` option to download all resources:
+
+```bash
+uv run python tools/dl_resources.py --full
+```
+
+These resources include pretrained model weights, font files, and the MarioEval benchmark dataset if specified full.
 
 > ⚠️ Some resources with stricter licenses must be downloaded manually.
 Please refer to the [link](https://huggingface.co/cyberagent/type-r) for details.
@@ -157,7 +162,6 @@ bash script/demo.sh
 - Default output directory: `results/demo`
 - Input prompts are read from [resources/prompt/example.txt](https://huggingface.co/cyberagent/type-r/blob/main/prompt/example.txt)
 - Prompts should be separated by line breaks, with renderable text enclosed in double quotes (")
-
 
 
 ### 🔹 Mario-Eval Benchmark (Trial version)

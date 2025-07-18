@@ -18,7 +18,6 @@ dependencies = [
     "type-r-dataset",
     "type-r-eraser",
     "type-r-editor",
-    "type-r-eval",
     "type-r-ocr",
     "type-r-t2i",
 ]
@@ -33,6 +32,9 @@ classifiers = [
 [project.optional-dependencies]
 accelerate = [
     "accelerate<1.0.0,>=0.33.0",
+]
+full = [
+    "type-r-eval",
 ]
 
 [dependency-groups]
