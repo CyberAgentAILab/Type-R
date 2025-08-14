@@ -1,4 +1,4 @@
-_target_: type_r.eraser.LamaWrapper
+_target_: type_r.eraser.lama.LamaWrapper
 _partial_: true
 
 weight_path: resources/weight/text_eraser/big-lama.pt

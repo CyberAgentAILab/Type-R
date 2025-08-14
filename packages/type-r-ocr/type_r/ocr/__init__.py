@@ -1,50 +1,37 @@
-from typing import Any
+from type_r.util.loader import load_class_lazily
 
 from .base import BaseOCRDet, BaseOCRRecog
-from .clip4str import Clip4Str
-from .clovarecog import ClovaRecogBench
-from .craft import craftOCRDet
-from .deepsolo import DeepSoloDet
-from .hisam import HiSAMOCRDet
-from .masktextspotterv3 import (
-    MaskTextSpotterV3Det,
-    MaskTextSpotterV3Recog,
-)
-from .modelscopeocr import ConvnextTinyOCR
-from .paddleocr import PaddleOCRDet
-from .trocr import TROCRRecog
-
-OCR_DETECTION_MODEL_FACTORY = {
-    "paddleocr": PaddleOCRDet,
-    "craft": craftOCRDet,
-    "hisam": HiSAMOCRDet,
-    "deepsolo": DeepSoloDet,
-    "masktextspotterv3": MaskTextSpotterV3Det,
-}
-OCR_RECOGNITION_MODEL_FACTORY = {
-    "modelscope": ConvnextTinyOCR,  # ppv3?
-    "masktextspotterv3": MaskTextSpotterV3Recog,
-    "trocr": TROCRRecog,
-    "clovarecog": ClovaRecogBench,
-    "clip4str": Clip4Str,
-}
 
 
 def build_detection_ocr(
     detection_model_name: str,
-    detection_model_params: Any = None,
+    detection_model_params: dict | None = None,
 ) -> BaseOCRDet:
-    detection_model = OCR_DETECTION_MODEL_FACTORY[detection_model_name](
-        **detection_model_params
+    MODELS = {
+        "paddleocr": "type_r.ocr.paddleocr.PaddleOCRDet",
+        "craft": "type_r.ocr.craft.craftOCRDet",
+        "hisam": "type_r.ocr.hisam.HiSAMOCRDet",
+        "deepsolo": "type_r.ocr.deepsolo.DeepSoloDet",
+        "masktextspotterv3": "type_r.ocr.masktextspotterv3.MaskTextSpotterV3Det",
+    }
+    detection_model = load_class_lazily(MODELS[detection_model_name])(
+        **(detection_model_params or {})
     )
     return detection_model
 
 
 def build_recognition_ocr(
     recognition_model_name: str,
-    recognition_model_params: Any = None,
+    recognition_model_params: dict | None = None,
 ) -> BaseOCRRecog:
-    recognition_model = OCR_RECOGNITION_MODEL_FACTORY[recognition_model_name](
-        **recognition_model_params
+    MODELS = {
+        "modelscope": "type_r.ocr.modelscopeocr.ConvnextTinyOCR",
+        "masktextspotterv3": "type_r.ocr.masktextspotterv3.MaskTextSpotterV3Recog",
+        "trocr": "type_r.ocr.trocr.TROCRRecog",
+        "clovarecog": "type_r.ocr.clovarecog.ClovaRecogBench",
+        "clip4str": "type_r.ocr.clip4str.Clip4Str",
+    }
+    recognition_model = load_class_lazily(MODELS[recognition_model_name])(
+        **(recognition_model_params or {})
     )
     return recognition_model

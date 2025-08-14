@@ -1,4 +1,4 @@
-_target_: type_r.eraser.GarnetWrapper
+_target_: type_r.eraser.garnet.GarnetWrapper
 _partial_: true
 
 weight_path: resources/weight/text_eraser/garnet.pth

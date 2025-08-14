@@ -35,6 +35,7 @@ accelerate = [
 ]
 full = [
     "type-r-eval",
+    "type-r-ocr[full]",
 ]
 
 [dependency-groups]

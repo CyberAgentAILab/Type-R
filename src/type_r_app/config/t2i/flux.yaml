@@ -1,4 +1,4 @@
-_target_: type_r.t2i.Flux
+_target_: type_r.t2i.flux.Flux
 _partial_: true
 
 # weight directory path
