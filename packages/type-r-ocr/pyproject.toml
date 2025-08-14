@@ -24,6 +24,7 @@ dependencies = [
     "paddlepaddle>=2.6.2",
     "type-r-core",
     "lmdb",
+    "datasets>=3.0.0,<3.4.0",  # For modelscope
 ]
 
 [project.optional-dependencies]

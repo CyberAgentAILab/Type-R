@@ -1,4 +1,4 @@
-_target_: type_r.eraser.PadInpaintor
+_target_: type_r.eraser.pad.PadInpaintor
 _partial_: true
 
 weight_path: tmp

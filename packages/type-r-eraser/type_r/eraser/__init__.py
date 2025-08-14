@@ -1,14 +1,13 @@
-from .lama import LamaWrapper
-from .garnet import GarnetWrapper
-from .pad import PadInpaintor
+from type_r.util.loader import load_class_lazily
+
+from .base import BaseTextEraser
 
 
-INPAINTOR_FACTORY = {
-    "lama": LamaWrapper,
-    "padding": PadInpaintor,
-    "garnet": GarnetWrapper,
-}
-
-
-def build_inpaintor(inpaint_model, model_params):
-    return INPAINTOR_FACTORY[inpaint_model](**model_params)
+def build_inpaintor(inpaint_model, model_params) -> BaseTextEraser:
+    """Build an inpainting model."""
+    MODELS = {
+        "lama": "type_r.eraser.lama.LamaWrapper",
+        "padding": "type_r.eraser.padding.PadInpaintor",
+        "garnet": "type_r.eraser.garnet.GarnetWrapper",
+    }
+    return load_class_lazily(MODELS[inpaint_model])(**model_params)

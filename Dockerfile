@@ -24,7 +24,8 @@ RUN DEBIAN_FRONTEND=noninteractive && \
     libcusolver-dev-12-6 \
     python3-dev \
     libgl1 \
-    libgl1-mesa-dev
+    libgl1-mesa-dev \
+    libegl1
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
