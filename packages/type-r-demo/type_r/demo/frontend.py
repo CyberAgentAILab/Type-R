@@ -119,7 +119,7 @@ def identify_word_mapping() -> None:
 
         with st.chat_message("assistant"):
             st.markdown("Word mapping adjusted successfully.")
-            st.json(initial_word_mapping.model_dump(), expanded=False)
+            st.json(word_mapping.model_dump(), expanded=False)
             st.image(aligned_image, caption="Aligned Image", use_container_width=True)
 
     except Exception as e:
